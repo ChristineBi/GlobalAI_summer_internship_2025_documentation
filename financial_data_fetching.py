@@ -177,7 +177,7 @@ def main():
             save_data(all_data, initial_run)
         
         if new_failed:
-            print(f"\n⚠️ {len(new_failed)} new tickers failed during this run")
+            print(f"\n{len(new_failed)} new tickers failed during this run")
         
         print("\nScript completed")
         print(f"Data saved to {FINANCIAL_DATA_FILE}")
