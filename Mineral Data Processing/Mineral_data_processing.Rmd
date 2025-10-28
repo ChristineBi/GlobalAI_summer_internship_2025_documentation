@@ -1,0 +1,400 @@
+---
+title: "PhaseII"
+output: html_document
+date: "2025-06-19"
+---
+```{r}
+library(dplyr)
+
+df <- read.csv("Commidity_dependence.csv")
+if(!"mining" %in% colnames(df)) stop("Column 'mining' not found in the CSV file.")
+
+df_ranked <- df %>%
+  arrange(desc(mining)) %>%
+  mutate(
+    rank = row_number(),
+    n = n(),  
+    bin = ntile(rank, 6), 
+    score = 7 - bin  # Convert bin to score: top 1/6 gets 6, bottom 1/6 gets 1
+  ) %>%
+  select(-rank, -n, -bin)
+
+head(df_ranked)
+```
+
+```{r}
+df <- read.csv("Commodity_all_countries_ranked.csv")
+
+# Calculate average share.of.mining.export for super.region.country == 1
+super_region_avg <- mean(df$Share.of.Mining.Export[df$Super.Region.Country == 1], na.rm = TRUE)
+
+# Calculate average share.of.mining.export for PRGT.eligible == 1
+prgt_avg <- mean(df$Share.of.Mining.Export[df$PRGT.Eligible == 1], na.rm = TRUE)
+
+# Calculate average share.of.mining.export for all countries
+overall_avg <- mean(df$Share.of.Mining.Export, na.rm = TRUE)
+
+cat("Average Share.of.Mining.Export for:\n")
+cat("- Super region countries (Super.Region.Country == 1):", super_region_avg, "\n")
+cat("- PRGT eligible countries (PRGT.Eligible == 1):", prgt_avg, "\n")
+cat("- All countries:", overall_avg, "\n")
+```
+```{r}
+df <- read.csv("Commodity_all_countries_ranked.csv")
+
+calculate_stats <- function(data, group_name) {
+  stats <- data.frame(
+    Min = min(data$Share.of.Mining.Export, na.rm = TRUE),
+    Median = median(data$Share.of.Mining.Export, na.rm = TRUE),
+    Mean = mean(data$Share.of.Mining.Export, na.rm = TRUE),
+    Max = max(data$Share.of.Mining.Export, na.rm = TRUE)
+  )
+  
+  # Find countries with min and max values
+  min_country <- data$Country.Name[which.min(data$Share.of.Mining.Export)]
+  max_country <- data$Country.Name[which.max(data$Share.of.Mining.Export)]
+  
+  cat("\nStatistics for", group_name, ":\n")
+  print(stats)
+  cat("Country with minimum Share.of.Mining.Export:", as.character(min_country), "\n")
+  cat("Country with maximum Share.of.Mining.Export:", as.character(max_country), "\n")
+  
+  return(stats)
+}
+
+# 1. Super region countries (Super.Region.Country == 1)
+super_region <- df[df$Super.Region.Country == 1 & !is.na(df$Super.Region.Country), ]
+super_stats <- calculate_stats(super_region, "Super Region Countries (Super.Region.Country == 1)")
+
+# 2. PRGT eligible countries (PRGT.Eligible == 1)
+prgt <- df[df$PRGT.Eligible == 1 & !is.na(df$PRGT.Eligible), ]
+prgt_stats <- calculate_stats(prgt, "PRGT Eligible Countries (PRGT.Eligible == 1)")
+
+# 3. All countries
+all_stats <- calculate_stats(df, "All Countries")
+
+results <- rbind(
+  cbind(Group = "Super Region Countries", super_stats),
+  cbind(Group = "PRGT Eligible Countries", prgt_stats),
+  cbind(Group = "All Countries", all_stats)
+)
+cat("\nCombined Results:\n")
+print(results)
+```
+
+```{r}
+df <- read.csv("Commodity_all_countries_ranked.csv")
+
+calculate_stats <- function(data, group_name) {
+  stats <- data.frame(
+    Min = min(data$Share.of.Mining.Export, na.rm = TRUE),
+    Median = median(data$Share.of.Mining.Export, na.rm = TRUE),
+    Mean = mean(data$Share.of.Mining.Export, na.rm = TRUE),
+    Max = max(data$Share.of.Mining.Export, na.rm = TRUE)
+  )
+  
+  # Find countries with min and max values
+  min_country <- data$Country.Name[which.min(data$Share.of.Mining.Export)]
+  max_country <- data$Country.Name[which.max(data$Share.of.Mining.Export)]
+  
+  cat("\nStatistics for", group_name, ":\n")
+  print(stats)
+  cat("Country with minimum Share.of.Mining.Export:", as.character(min_country), "\n")
+  cat("Country with maximum Share.of.Mining.Export:", as.character(max_country), "\n")
+  
+  return(list(stats = stats, min_country = min_country, max_country = max_country))
+}
+
+# 1. Super region countries (Super.Region.Country == 1)
+super_region <- df[df$Super.Region.Country == 1 & !is.na(df$Super.Region.Country), ]
+super_results <- calculate_stats(super_region, "Super Region Countries (Super.Region.Country == 1)")
+
+# 2. PRGT eligible countries (PRGT.Eligible == 1)
+prgt <- df[df$PRGT.Eligible == 1 & !is.na(df$PRGT.Eligible), ]
+prgt_results <- calculate_stats(prgt, "PRGT Eligible Countries (PRGT.Eligible == 1)")
+
+# 3. All other countries (not super-region and not PRGT eligible)
+other_countries <- df[!(df$Super.Region.Country == 1 | df$PRGT.Eligible == 1) %in% TRUE, ]
+other_results <- calculate_stats(other_countries, "Other Countries (not super-region and not PRGT eligible)")
+
+results <- data.frame(
+  Group = c("Super Region Countries", 
+            "PRGT Eligible Countries", 
+            "Other Countries"),
+  Min = c(super_results$stats$Min, prgt_results$stats$Min, other_results$stats$Min),
+  Median = c(super_results$stats$Median, prgt_results$stats$Median, other_results$stats$Median),
+  Mean = c(super_results$stats$Mean, prgt_results$stats$Mean, other_results$stats$Mean),
+  Max = c(super_results$stats$Max, prgt_results$stats$Max, other_results$stats$Max),
+  Min_Country = c(super_results$min_country, prgt_results$min_country, other_results$min_country),
+  Max_Country = c(super_results$max_country, prgt_results$max_country, other_results$max_country)
+)
+
+cat("\nCombined Results:\n")
+print(results)
+write.csv(results, file = "statistics_by_group.csv", row.names = FALSE)
+
+```
+
+```{r}
+df <- read.csv("Commodity_all_countries_ranked.csv")
+fmf <-read.csv("fmf_5_indicators.csv")
+library(readxl)
+```
+```{r}
+library(dplyr)
+merged_data <- left_join(df, fmf, by = "Country.Name")
+```
+```{r}
+top6 <- read_excel("country_top6_wide.xlsx")
+merged_data <- left_join(merged_data, top6, by = "Country.Name")
+```
+```{r}
+write.csv(merged_data, file = "merged_countries.csv", row.names = FALSE)
+```
+
+```{r}
+fmf <-read.csv("all_countries_5_indicators.csv")
+
+# List of countries to keep
+countries_to_keep <- c(
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola",
+  "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria",
+  "Azerbaijan", "Bahamas, The", "Bahrain", "Bangladesh", "Barbados",
+  "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia",
+  "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei Darussalam",
+  "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia",
+  "Cameroon", "Canada", "Central African Republic", "Chad", "Chile",
+  "China", "Colombia", "Comoros", "Congo (Republic of the)", "Costa Rica",
+  "Côte d'Ivoire", "Croatia", "Cuba", "Cyprus", "Czechia",
+  "Democratic Republic of the Congo", "Denmark", "Djibouti", "Dominica",
+  "Dominican Republic", "Ecuador", "Egypt", "El Salvador",
+  "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia",
+  "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany",
+  "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau",
+  "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India",
+  "Indonesia", "Iran, Islamic Rep.", "Iraq", "Ireland", "Israel", "Italy",
+  "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati",
+  "Korea, Dem. People's Rep.", "Korea, Rep.", "Kuwait", "Kyrgyzstan",
+  "Lao PDR", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya",
+  "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", "Malawi",
+  "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands",
+  "Mauritania", "Mauritius", "Mexico", "Micronesia, Fed. Sts.", "Moldova",
+  "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar",
+  "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua",
+  "Niger", "Nigeria", "North Macedonia", "Norway", "Oman", "Pakistan",
+  "Palau", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines",
+  "Poland", "Portugal", "Qatar", "Romania", "Russian Federation",
+  "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", 
+  "Saint Vincent and the Grenadines", "Samoa", "San Marino",
+  "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia",
+  "Seychelles", "Sierra Leone", "Singapore", "Slovak Republic", "Slovenia",
+  "Solomon Islands", "Somalia", "South Africa", "South Sudan", "Spain",
+  "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria",
+  "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga",
+  "Trinidad and Tobago", "Tunisia", "Turkiye", "Turkmenistan", "Tuvalu",
+  "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom",
+  "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Venezuela, RB",
+  "Viet Nam", "Yemen", "Zambia", "Zimbabwe"
+)
+
+# keep only the specified countries
+fmf_filtered <- fmf %>% 
+  filter(`Country.Name` %in% countries_to_keep)
+```
+
+
+```{r}
+write.csv(fmf_filtered, file = "fmf_filtered.csv", row.names = FALSE)
+```
+
+
+```{r}
+top6 <- read_excel("country_top6_wide.xlsx")
+target_codes <- paste0("'", 7407:7419)
+
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) {
+    cell_value <- as.character(top6[i, j])
+    if (!is.na(cell_value) && cell_value %in% target_codes) {
+      top6[i, j + 6] <- "Other Copper"
+    }
+  }
+}
+
+target_codes <- paste0("'", 7505:7508)
+
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) { 
+    cell_value <- as.character(top6[i, j])
+    if (!is.na(cell_value) && cell_value %in% target_codes) {
+      top6[i, j + 6] <- "Other Nickel"  
+    }
+  }
+}
+
+target_codes <- paste0("'", 7605:7616)
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) {  
+    cell_value <- as.character(top6[i, j])
+    if (!is.na(cell_value) && cell_value %in% target_codes) {
+      top6[i, j + 6] <- "Other Aluminium"  
+    }
+  }
+}
+
+target_codes <- paste0("'", 7804:7806)
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) {  
+    cell_value <- as.character(top6[i, j])
+    if (!is.na(cell_value) && cell_value %in% target_codes) {
+      top6[i, j + 6] <- "Other Lead" 
+    }
+  }
+}
+
+target_codes <- paste0("'", 7905:7907)
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) { 
+    cell_value <- as.character(top6[i, j])
+    if (!is.na(cell_value) && cell_value %in% target_codes) {
+      top6[i, j + 6] <- "Other Zinc"  
+    }
+  }
+}
+
+target_codes <- paste0("'", 8004:8007)
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) { 
+    cell_value <- as.character(top6[i, j])
+    if (!is.na(cell_value) && cell_value %in% target_codes) {
+      top6[i, j + 6] <- "Other Tin"  
+    }
+  }
+}
+
+target_codes <- paste0("'", 7207:7229)
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) { 
+    cell_value <- as.character(top6[i, j])
+    if (!is.na(cell_value) && cell_value %in% target_codes) {
+      top6[i, j + 6] <- "Other Iron"
+    }
+  }
+}
+
+```
+```{r}
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) { 
+    if (!is.na(top6[i, j]) && as.character(top6[i, j]) == "'8102") {
+      top6[i, j + 6] <- "Molybdenum and articles thereof"
+    }
+  }
+}
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) {  
+    if (!is.na(top6[i, j]) && as.character(top6[i, j]) == "'8105") {
+      top6[i, j + 6] <- "Cobalt mattes and other intermediate products"
+    }
+  }
+}
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) { 
+    if (!is.na(top6[i, j]) && as.character(top6[i, j]) == "'8108") {
+      top6[i, j + 6] <- "Titanium and articles thereof"
+    }
+  }
+}
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) {
+    if (!is.na(top6[i, j]) && as.character(top6[i, j]) == "'8110") {
+      top6[i, j + 6] <- "Antimony and articles thereof"
+    }
+  }
+}
+for (i in 1:nrow(top6)) {
+  for (j in 1:(ncol(top6) - 6)) {
+    if (!is.na(top6[i, j]) && as.character(top6[i, j]) == "'8110") {
+      top6[i, j + 6] <- "Antimony and articles thereof"
+    }
+  }
+}
+```
+
+```{r}
+write.csv(top6, file = "cleaned_top6.csv", row.names = FALSE)
+```
+
+
+```{r}
+financial <-read.csv("financial_reports.csv")
+variable_order <- c(
+  "totalAssets",
+  "earningAssets",
+  "totalLiab",
+  "totalStockholderEquity",
+  "retainedEarnings",
+  "cash",
+  "cashAndEquivalents",
+  "totalCurrentLiabilities",
+  "netDebt",
+  "shortTermDebt",
+  "shortLongTermDebt",
+  "shortLongTermDebtTotal",
+  "propertyPlantEquipment",
+  "totalCurrentAssets",
+  "longTermInvestments",
+  "netTangibleAssets",
+  "shortTermInvestments",
+  "netReceivables",
+  "longTermDebt",
+  "inventory",
+  "accountsPayable",
+  "longTermDebtTotal",
+  "nonCurrentLiabilitiesTotal",
+  "netInvestedCapital",
+  "netIncome",
+  "ebitda",
+  "interestExpense",
+  "interestIncome",
+  "netInterestIncome",
+  "totalRevenue",
+  "totalOperatingExpenses",
+  "investments",
+  "changeToLiabilities",
+  "totalCashflowsFromInvestingActivities",
+  "netBorrowings",
+  "totalCashFromOperatingActivities",
+  "issuanceOfCapitalStock",
+  "depreciation",
+  "exchangeRateChanges",
+  "stockBasedCompensation",
+  "freeCashFlow"
+)
+
+years_wanted <- c(2020, 2021, 2022, 2023, 2024, 2025)
+
+ordered_columns <- c("Ticker", unlist(lapply(variable_order, function(var) {
+  paste0(var, "_", years_wanted)
+})))
+
+final_columns <- ordered_columns[ordered_columns %in% names(financial)]
+
+financial_filtered <- financial[, final_columns]
+
+financial_filtered <- financial_filtered %>%
+  select(Ticker, everything()) %>%
+  select(Ticker, order(desc(names(.)[-1])))
+
+write.csv(financial_filtered, file = "financials_filtered.csv", row.names = FALSE)         
+```
+
+```{r}
+merged <- read.csv("merged_countries.csv")
+top6 <-read.csv("cleaned_top6.csv")
+
+merged_data <- left_join(merged, top6, by = "Country.Name")
+
+write.csv(merged_data, file = "CM-SCPI.csv", row.names = FALSE)
+```
+
