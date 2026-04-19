@@ -4,7 +4,7 @@ import pandas as pd
 import time
 from tqdm import tqdm
 
-API_TOKEN = '5f3afd582bd7b4.95720069'
+API_TOKEN = '' #Insert API
 BASE_URL = 'https://eodhd.com/api'
 
 FINANCIAL_DATA_FILE = "financial_reports.csv"
